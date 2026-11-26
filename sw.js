@@ -1,1 +1,27 @@
-if(!self.define){let e,i={};const n=(n,s)=>(n=new URL(n+".js",s).href,i[n]||new Promise(i=>{if("document"in self){const e=document.createElement("script");e.src=n,e.onload=i,document.head.appendChild(e)}else e=n,importScripts(n),i()}).then(()=>{let e=i[n];if(!e)throw new Error(`Module ${n} didn’t register its module`);return e}));self.define=(s,o)=>{const c=e||("document"in self?document.currentScript.src:"")||location.href;if(i[c])return;let r={};const a=e=>n(e,c),l={module:{uri:c},exports:r,require:a};i[c]=Promise.all(s.map(e=>l[e]||a(e))).then(e=>(o(...e),r))}}define(["./workbox-9c191d2f"],function(e){"use strict";self.skipWaiting(),e.clientsClaim(),e.precacheAndRoute([{url:"manifest.webmanifest",revision:"5b254f7191b82f442caf2ba2e801b16e"},{url:"index.html",revision:"19263a05310c64fb74d916994703e148"},{url:"icons/icon-maskable-512.png",revision:"505463cef87da52b16607da00a2f2ddf"},{url:"icons/icon-512.png",revision:"39ae9d885a17f7806032ba1450bcec5e"},{url:"icons/icon-192.png",revision:"e28a2738eea6c1aa79257ce2ac3b8c27"},{url:"icons/apple-touch-icon.png",revision:"bc0812d62a87d54a8a00c31d8f2c0ebc"},{url:"assets/workbox-window.prod.es5-BqEJf4Xk.js",revision:null},{url:"assets/index-CM87zHvO.css",revision:null},{url:"assets/index-Bk2j9Kem.js",revision:null},{url:"icons/apple-touch-icon.png",revision:"bc0812d62a87d54a8a00c31d8f2c0ebc"},{url:"icons/icon-192.png",revision:"e28a2738eea6c1aa79257ce2ac3b8c27"},{url:"icons/icon-512.png",revision:"39ae9d885a17f7806032ba1450bcec5e"},{url:"icons/icon-maskable-512.png",revision:"505463cef87da52b16607da00a2f2ddf"},{url:"manifest.webmanifest",revision:"5b254f7191b82f442caf2ba2e801b16e"}],{}),e.cleanupOutdatedCaches(),e.registerRoute(new e.NavigationRoute(e.createHandlerBoundToURL("index.html")))});
+// Ahorro: funciona sin conexión. Sube el número de versión cuando cambies index.html.
+const CACHE = 'ahorro-v3';
+const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  // Con conexión se usa la versión más reciente; sin conexión, la guardada.
+  e.respondWith(
+    fetch(req).then(res => {
+      if (res && (res.ok || res.type === 'opaque')) {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+      }
+      return res;
+    }).catch(() => caches.match(req).then(r => r || (req.mode === 'navigate' ? caches.match('index.html') : undefined)))
+  );
+});
